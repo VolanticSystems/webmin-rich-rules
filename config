@@ -1,0 +1,13 @@
+firewall_cmd=firewall-cmd
+init_name=firewalld
+config_dir=/etc/firewalld
+packet_handling=drop
+debug_categorization=1
+debug_fail2ban=0
+debug_search=0
+debug_firewall_cmd=0
+show_raw_rules=0
+show_version_number=1
+show_version_timestamp=0
+
+

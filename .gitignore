@@ -1,0 +1,7 @@
+*.backup
+test/
+test_categorization.pl
+test_index_fix.pl
+.claude/
+DEV-PLAN.md
+CHANGELOG.md

@@ -1,0 +1,11 @@
+firewall_cmd=Full path to firewall-cmd program,0
+init_name=FirewallD init script name,0
+config_dir=FirewallD configuration directory,0
+packet_handling=Default packet handling action,1,0-<tt>drop</tt>,1-<tt>reject</tt>
+debug_categorization=Enable debug output for rule categorization,1,0-No,1-Yes
+debug_fail2ban=Enable debug output for fail2ban detection,1,0-No,1-Yes
+debug_search=Enable debug output for search operations,1,0-No,1-Yes
+debug_firewall_cmd=Enable debug output for firewall command execution,1,0-No,1-Yes
+show_raw_rules=Show raw rule text in debug output,1,0-No,1-Yes
+show_version_number=Display current version number in header,1,0-No,1-Yes
+show_version_timestamp=Display current version timestamp in header,1,0-No,1-Yes

@@ -1,0 +1,346 @@
+index_title=FirewallD Rich Rules
+index_zone=Zone
+index_rule=Rich Rule
+index_action=Actions
+index_add=Add Rich Rule
+index_return=rich rules
+index_none=No rich rules defined in any zone.
+index_search=Search rules:
+index_filter=Filter by zone:
+index_all=All Zones
+index_stats=Rules: $1 | Active: $2 | Errors: $3
+index_ecommand=The command $1 was not found on your system. Please install firewalld first.
+index_estopped=FirewallD is not currently running. Please start the firewalld service first.
+index_eversion=Your version of FirewallD does not support rich rules. Please upgrade to version 0.3.0 or later.
+edit=Edit
+delete=Delete
+save=Save
+search=Search
+
+edit_title1=Create Rich Rule
+edit_title2=Edit Rich Rule
+edit_header=Rich Rule Details
+edit_zone=Zone
+edit_family=IP Family
+edit_family_ipv4=IPv4
+edit_family_ipv6=IPv6
+edit_family_both=Both
+edit_rule_type=Rule Type
+edit_rule_source=Source-based Rule
+edit_rule_service=Service-based Rule
+edit_rule_protocol=Protocol-based Rule
+edit_rule_port=Port-based Rule
+edit_source=Source Configuration
+edit_source_type=Source Type
+edit_source_address=IP Address/Network
+edit_source_mac=MAC Address
+edit_source_interface=Interface
+edit_source_ipset=IP Set
+edit_destination=Destination Configuration
+edit_destination_address=Destination Address
+edit_destination_interface=Destination Interface
+edit_service=Service Configuration
+edit_service_name=Service Name
+edit_service_port=Port/Protocol
+edit_port=Port Configuration
+edit_port_single=Single Port
+edit_port_range=Port Range
+edit_port_from=From Port
+edit_port_to=To Port
+edit_protocol=Protocol
+edit_protocol_tcp=TCP
+edit_protocol_udp=UDP
+edit_protocol_sctp=SCTP
+edit_protocol_dccp=DCCP
+edit_action=Action
+edit_action_accept=Accept
+edit_action_reject=Reject
+edit_action_drop=Drop
+edit_reject_type=Reject Type
+edit_reject_icmp=ICMP Host Prohibited
+edit_reject_icmp6=ICMPv6 Host Prohibited
+edit_reject_tcp=TCP Reset
+edit_logging=Logging Configuration
+edit_log_enable=Enable Logging
+edit_log_prefix=Log Prefix
+edit_log_level=Log Level
+edit_log_level_emerg=Emergency
+edit_log_level_alert=Alert
+edit_log_level_crit=Critical
+edit_log_level_err=Error
+edit_log_level_warn=Warning
+edit_log_level_notice=Notice
+edit_log_level_info=Info
+edit_log_level_debug=Debug
+edit_log_limit=Rate Limit
+edit_log_limit_rate=Rate
+edit_log_limit_per=per
+edit_log_limit_second=second
+edit_log_limit_minute=minute
+edit_log_limit_hour=hour
+edit_log_limit_day=day
+edit_audit=Enable Audit
+edit_masquerade=Enable Masquerading
+edit_forward=Port Forwarding
+edit_forward_enable=Enable Port Forwarding
+edit_forward_to_port=Forward to Port
+edit_forward_to_addr=Forward to Address
+edit_advanced=Advanced Options
+edit_priority=Rule Priority
+edit_preview=Rule Preview
+edit_preview_text=Generated rule:
+edit_update_preview=Update Preview
+
+edit_einstall=FirewallD is not properly installed or running
+
+save_err=Failed to save rich rule
+save_err_install=FirewallD is not properly installed or running
+save_err_zone=Invalid zone selected
+save_err_family=Invalid IP family
+save_err_source_address=Invalid source address or network
+save_err_source_mac=Invalid MAC address format
+save_err_source_interface=Invalid interface name
+save_err_source_ipset=Invalid IP set name
+save_err_destination_address=Invalid destination address or network
+save_err_destination_interface=Invalid destination interface name
+save_err_service_name=Invalid service name
+save_err_port=Invalid port number
+save_err_port_range=Invalid port range
+save_err_protocol=Invalid protocol
+save_err_action=Invalid action
+save_err_reject_type=Invalid reject type
+save_err_log_prefix=Invalid log prefix
+save_err_log_level=Invalid log level
+save_err_log_limit=Invalid rate limit
+save_err_forward_port=Invalid forward port
+save_err_forward_addr=Invalid forward address
+save_err_priority=Invalid priority value
+save_err_conflict=Rule conflicts with existing rule: $1
+save_err_syntax=Invalid rich rule syntax: $1
+save_err_command=firewall-cmd error: $1
+
+delete_title=Delete Rich Rule
+delete_rusure=Are you sure you want to delete this rich rule?
+delete_rusure2=This will remove the rule: <tt>$1</tt>
+delete_err=Failed to delete rich rule
+delete_err_inuse=Cannot delete rule, it is in use
+delete_err_install=FirewallD is not properly installed or running
+delete_err_zone=Invalid zone specified
+delete_err_rule=Invalid rule specified
+delete_rule_details=Rule Details
+delete_zone=Zone
+delete_rule=Rule Text
+delete_family=IP Family
+delete_source=Source
+delete_destination=Destination
+delete_service=Service
+delete_port=Port
+delete_action=Action
+delete_logging=Logging
+delete_masquerade=Masquerade
+delete_forward=Port Forward
+delete_confirm=Delete Rule
+delete_sure=Are you sure you want to delete this rule?
+cancel=Cancel
+
+log_create_rule=Created rich rule in zone $1
+log_modify_rule=Modified rich rule in zone $1
+log_delete_rule=Deleted rich rule from zone $1
+
+acl_zones=Zones this user can manage
+acl_zonesel=Selected zones
+acl_zoneall=All zones
+acl_edit=Can create and edit rich rules?
+acl_delete=Can delete rich rules?
+
+# v1.1 Enhanced Features
+index_filter_category=Filter by category:
+index_category_all=All Rules
+index_category_admin=Admin Rules
+index_category_fail2ban=fail2ban Rules
+index_category_unknown=Other Rules
+index_filter_ip=IP/Network:
+index_filter_port=Port:
+index_filter_protocol=Protocol:
+index_filter_service=Service:
+index_filter_action=Action:
+index_filter_source=Source:
+index_filter_text=Text:
+index_clear_filters=Clear All
+index_rule_type=Type
+index_rule_summary=Rule Summary
+index_actions=Actions
+index_selected=selected
+index_bulk_actions=Bulk Actions:
+index_delete_selected=Delete Selected
+index_clone_selected=Clone Selected
+index_reload_firewalld=Reload FirewallD
+index_sync_fail2ban=Sync fail2ban
+index_stats_detailed=Total: $1 | Admin: $2 | fail2ban: $3 | Other: $4
+
+# Clone functionality
+edit_title_clone=Clone Rich Rule
+clone_rule=Clone Rule
+clone_selected=Clone Selected
+
+# fail2ban integration
+fail2ban_unban=Unban IP
+fail2ban_info=IP Info
+fail2ban_view=View
+fail2ban_jail=Jail
+fail2ban_status=Status
+fail2ban_banned=Banned
+fail2ban_not_banned=Not banned
+fail2ban_unban_title=Unban IP Address
+fail2ban_unban_confirm=Are you sure you want to unban this IP?
+fail2ban_unban_success=IP successfully unbanned
+fail2ban_unban_error=Failed to unban IP
+fail2ban_info_title=IP Address Information
+fail2ban_whois=WHOIS Information
+fail2ban_firewall_rules=Related Firewall Rules
+fail2ban_no_jails=fail2ban is not running or not available
+fail2ban_not_found=IP not found in fail2ban
+
+# Bulk operations
+bulk_delete_confirm=Are you sure you want to delete the selected rules?
+bulk_delete_success=Successfully deleted $1 rules
+bulk_delete_error=Failed to delete some rules
+bulk_clone_title=Clone Selected Rules
+bulk_clone_success=Successfully cloned $1 rules
+bulk_clone_error=Failed to clone some rules
+
+# Messages
+message_reloaded=FirewallD reloaded successfully
+message_reload_error=Error reloading FirewallD
+message_sync_fail2ban=Synchronized with fail2ban
+message_unbanned=IP $1 has been unbanned
+message_deleted=Successfully deleted $1 rules
+
+# Rule categories
+category_admin=Admin
+category_fail2ban=fail2ban
+category_unknown=Unknown
+category_indicator_admin=[ADM]
+category_indicator_fail2ban=[F2B]
+category_indicator_unknown=[UNK]
+
+# v1.2 Bug Fixes and Enhancements
+index_action_type=Action Type:
+index_action_type_all=All Actions
+index_action_type_accept=Accept
+index_action_type_reject=Reject
+index_action_type_drop=Drop
+index_source_type=Source Type:
+
+# Debug and diagnostic features
+debug_categorization=Debug Categorization
+debug_fail2ban=Debug fail2ban
+debug_search=Debug Search
+debug_show_raw=Show Raw Rules
+
+# Enhanced error messages
+error_frame_compatibility=Webmin frame compatibility issue detected
+error_fail2ban_detection=fail2ban rule detection issue
+error_categorization_failed=Rule categorization failed
+
+# Tab names
+tab_admin=Admin Rules
+tab_fail2ban=Fail2Ban Rules
+tab_other=Other Rules
+tab_all=All Rules
+
+# Search interface
+search_heading=Search Rules
+search_action=Action:
+search_zone=Zone:
+search_source=Source:
+search_submit=Search
+search_clear=Clear All
+search_ip=IP/Network:
+search_port=Port:
+search_protocol=Protocol:
+search_service=Service:
+search_text=Text Search:
+search_all_actions=All Actions
+search_all_zones=All
+search_all_protocols=All
+search_all_rules=All Rules
+
+# Stats display
+stats_showing=Showing: $1 rules
+stats_showing_cat=Showing: $1 rules ($2 category)
+stats_total=Total: $1 (Admin: $2 | fail2ban: $3 | Other: $4)
+stats_add_rule=+ Add Rule
+stats_reload=Reload FirewallD
+stats_no_rules=No rules found matching the current criteria.
+stats_add_new=Add a new rule
+
+# Column headers
+col_select=Select
+col_type=Type
+col_zone=Zone
+col_summary=Rule Summary
+col_actions=Actions
+
+# Clone errors
+clone_err_params=Missing zone or index parameter
+clone_err_index=Invalid rule index
+
+# Bulk action errors
+bulk_err_none=No rules selected
+bulk_err_delete=Failed to delete rule from $1: $2
+bulk_err_some=Some rules could not be deleted: $1
+bulk_err_unknown=Unknown bulk action
+
+# Unban page
+unban_heading=Unban IP Address: $1
+unban_explain=This will unban the IP address from all fail2ban jails and may remove related firewall rules.
+unban_active_jails=Active fail2ban jails:
+unban_banned_jails=IP is currently banned in jails:
+unban_not_banned=IP is not currently banned in any active jails.
+unban_submit=Unban IP
+unban_err_noip=No IP address specified
+unban_err_format=Invalid IP address format
+unban_err_failed=Failed to unban IP: $1
+unban_back=Back to Rules
+
+# Info page
+info_heading=Information for IP Address: $1
+info_f2b_heading=fail2ban Status
+info_f2b_jail=Jail
+info_f2b_status=Status
+info_f2b_actions=Actions
+info_f2b_not_banned=Not banned
+info_f2b_unban_all=Unban from all jails
+info_fw_heading=Firewall Rules
+info_fw_zone=Zone
+info_fw_rule=Rule
+info_fw_category=Category
+info_fw_actions=Actions
+info_fw_none=No firewall rules found containing this IP address.
+info_whois_heading=WHOIS Information
+info_whois_na=WHOIS information not available.
+
+# Save errors
+save_err_content=Rule must have at least one source, destination, port, service, or protocol specification
+
+# v2.1 Add Rule Tab, Validation, and Test Rule
+tab_add_rule=+ Add Rule
+
+validate_error_no_action=No action specified (accept, reject, or drop required)
+validate_error_no_criteria=Rule has no match criteria (add source, service, port, or protocol)
+validate_error_port_range=Invalid port number (must be 1-65535)
+validate_error_port_reversed=Port range is reversed (start must be less than end)
+validate_error_port_no_protocol=Port specified without protocol
+validate_error_bad_ip=Invalid IP address format
+validate_error_bad_mac=Invalid MAC address format (expected XX:XX:XX:XX:XX:XX)
+validate_error_family_needed=IP address specified but no address family selected (IPv4 or IPv6)
+validate_warn_forward_no_port=Port forwarding enabled but no source port/protocol specified
+validate_warn_log_no_action=Logging enabled but no action specified
+validate_heading=Validation
+
+test_rule_button=Test Rule
+test_rule_testing=Testing rule with firewalld...
+test_rule_success=Firewalld accepted this rule
+test_rule_failed=Rule test failed
+test_rule_fix_errors=Fix validation errors before testing
