@@ -328,48 +328,78 @@ sub format_rule_summary
     my ($rule) = @_;
     my $parsed = get_parsed_rule($rule);  # Lazy loading
     my $rule_text = $rule->{'text'};
-    
-    # Create a shorter, more readable summary
+
     my @parts;
-    
-    # Source info
+    my $src_not = $parsed->{'source_not'} ? "NOT " : "";
+    my $dst_not = $parsed->{'destination_not'} ? "NOT " : "";
+
+    # 1. Source
     if ($parsed->{'source_address'}) {
-        push @parts, "from " . $parsed->{'source_address'};
-    } elsif ($parsed->{'source_interface'}) {
-        push @parts, "from " . $parsed->{'source_interface'};
+        push @parts, "from ${src_not}" . $parsed->{'source_address'};
     } elsif ($parsed->{'source_mac'}) {
-        push @parts, "from MAC " . $parsed->{'source_mac'};
+        push @parts, "from ${src_not}MAC " . $parsed->{'source_mac'};
+    } elsif ($parsed->{'source_ipset'}) {
+        push @parts, "from ${src_not}ipset:" . $parsed->{'source_ipset'};
     }
-    
-    # Service/port info
+
+    # 2. Destination
+    if ($parsed->{'destination_address'}) {
+        push @parts, "to ${dst_not}" . $parsed->{'destination_address'};
+    } elsif ($parsed->{'destination_ipset'}) {
+        push @parts, "to ${dst_not}ipset:" . $parsed->{'destination_ipset'};
+    }
+
+    # 3. Element (mutually exclusive)
     if ($parsed->{'service_name'}) {
         push @parts, "service " . $parsed->{'service_name'};
-    } elsif ($parsed->{'port'} && $parsed->{'protocol'}) {
-        push @parts, $parsed->{'protocol'} . "/" . $parsed->{'port'};
+    } elsif ($parsed->{'protocol_value'}) {
+        push @parts, "proto " . $parsed->{'protocol_value'};
+    } elsif ($parsed->{'icmp_block'}) {
+        push @parts, "icmp-block " . $parsed->{'icmp_block'};
+    } elsif ($parsed->{'icmp_type'}) {
+        push @parts, "icmp-type " . $parsed->{'icmp_type'};
+    } elsif ($parsed->{'masquerade'}) {
+        push @parts, "MASQUERADE";
+    } elsif ($parsed->{'forward_port'}) {
+        my $fwd = "forward " . $parsed->{'forward_protocol'} . "/" . $parsed->{'forward_port'};
+        $fwd .= "\x{2192}";  # → arrow
+        if ($parsed->{'forward_to_addr'}) {
+            $fwd .= $parsed->{'forward_to_addr'} . ":" . ($parsed->{'forward_to_port'} || $parsed->{'forward_port'});
+        } else {
+            $fwd .= ($parsed->{'forward_to_port'} || $parsed->{'forward_port'});
+        }
+        push @parts, $fwd;
     }
-    
-    # Action
+
+    # 4. Port (destination port — independent of element)
+    if ($parsed->{'port'} && $parsed->{'port_protocol'}) {
+        push @parts, $parsed->{'port_protocol'} . "/" . $parsed->{'port'};
+    }
+
+    # 5. Source port
+    if ($parsed->{'source_port'} && $parsed->{'source_port_protocol'}) {
+        push @parts, "sport " . $parsed->{'source_port_protocol'} . "/" . $parsed->{'source_port'};
+    }
+
+    # 6. Action
     if ($parsed->{'action'}) {
         push @parts, uc($parsed->{'action'});
     }
-    
-    # Logging
-    if ($parsed->{'log'}) {
+
+    # 7. Logging
+    if ($parsed->{'nflog'}) {
+        push @parts, "NFLOG";
+    } elsif ($parsed->{'log'}) {
         push @parts, "LOG";
     }
-    
-    # Forwarding
-    if ($parsed->{'forward_port'}) {
-        push @parts, "forward to " . ($parsed->{'forward_to_port'} || $parsed->{'forward_port'});
+
+    # 8. Audit
+    if ($parsed->{'audit'}) {
+        push @parts, "AUDIT";
     }
-    
-    # Masquerade
-    if ($parsed->{'masquerade'}) {
-        push @parts, "MASQUERADE";
-    }
-    
+
     my $summary = join(", ", @parts);
-    
+
     # If summary is too long or empty, show truncated original rule
     if (!$summary || length($summary) > 80) {
         $summary = $rule_text;
@@ -377,10 +407,10 @@ sub format_rule_summary
             $summary = substr($summary, 0, 77) . "...";
         }
     }
-    
+
     # Make it a link to edit page (following bind8 pattern)
-    return &ui_link("edit.cgi?zone=" . &urlize($rule->{'zone'}) . 
-                    "&idx=" . $rule->{'index'}, 
+    return &ui_link("edit.cgi?zone=" . &urlize($rule->{'zone'}) .
+                    "&idx=" . $rule->{'index'},
                     &html_escape($summary));
 }
 

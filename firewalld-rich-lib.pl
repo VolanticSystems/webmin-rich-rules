@@ -550,67 +550,106 @@ sub get_parsed_rule
 # The function was executing 143 rules × 9 zones = 1,287 firewall-cmd commands
 # Simple zone assignment works fine for rule management
 
+# Get list of ICMP types from firewalld
+sub get_firewalld_icmp_types
+{
+    my $base_cmd = $config{'firewall_cmd'} || '/usr/bin/firewall-cmd';
+    my $output = `$base_cmd --get-icmptypes 2>/dev/null`;
+    chomp($output);
+    return split(/\s+/, $output);
+}
+
+# Determine protocol class from a parsed rule
+sub determine_protocol_class
+{
+    my ($parsed) = @_;
+    return 'any' if (!$parsed || !ref($parsed));
+    if ($parsed->{'icmp_block'} || $parsed->{'icmp_type'}) { return 'icmp'; }
+    if ($parsed->{'port'} || $parsed->{'source_port'} || $parsed->{'service_name'} ||
+        $parsed->{'forward_port'} || $parsed->{'masquerade'}) { return 'tcp_udp'; }
+    if ($parsed->{'protocol_value'}) { return 'any'; }
+    return 'tcp_udp';
+}
+
 # Parse a rich rule text into components
 sub parse_rich_rule
 {
     my ($rule_text) = @_;
     return undef if (!$rule_text);
-    
+
     my %parsed;
-    
+
+    # Extract priority
+    if ($rule_text =~ /priority="([^"]+)"/) {
+        $parsed{'priority'} = $1;
+    }
+
     # Extract family
     if ($rule_text =~ /family="([^"]+)"/) {
         $parsed{'family'} = $1;
     }
-    
-    # Extract source
-    if ($rule_text =~ /source\s+address="([^"]+)"/) {
-        $parsed{'source_address'} = $1;
+
+    # Extract source with NOT inversion
+    if ($rule_text =~ /source\s+(NOT\s+)?address="([^"]+)"/) {
+        $parsed{'source_not'} = 1 if $1;
+        $parsed{'source_address'} = $2;
     }
-    if ($rule_text =~ /source\s+mac="([^"]+)"/) {
-        $parsed{'source_mac'} = $1;
+    if ($rule_text =~ /source\s+(NOT\s+)?mac="([^"]+)"/) {
+        $parsed{'source_not'} = 1 if $1;
+        $parsed{'source_mac'} = $2;
     }
-    if ($rule_text =~ /source\s+interface="([^"]+)"/) {
-        $parsed{'source_interface'} = $1;
+    if ($rule_text =~ /source\s+(NOT\s+)?ipset="([^"]+)"/) {
+        $parsed{'source_not'} = 1 if $1;
+        $parsed{'source_ipset'} = $2;
     }
-    if ($rule_text =~ /source\s+ipset="([^"]+)"/) {
-        $parsed{'source_ipset'} = $1;
+
+    # Extract destination with NOT inversion
+    if ($rule_text =~ /destination\s+(NOT\s+)?address="([^"]+)"/) {
+        $parsed{'destination_not'} = 1 if $1;
+        $parsed{'destination_address'} = $2;
     }
-    
-    # Extract destination
-    if ($rule_text =~ /destination\s+address="([^"]+)"/) {
-        $parsed{'destination_address'} = $1;
+    if ($rule_text =~ /destination\s+(NOT\s+)?ipset="([^"]+)"/) {
+        $parsed{'destination_not'} = 1 if $1;
+        $parsed{'destination_ipset'} = $2;
     }
-    if ($rule_text =~ /destination\s+interface="([^"]+)"/) {
-        $parsed{'destination_interface'} = $1;
-    }
-    
+
     # Extract service
     if ($rule_text =~ /service\s+name="([^"]+)"/) {
         $parsed{'service_name'} = $1;
     }
-    
-    # Extract port
-    if ($rule_text =~ /port\s+port="([^"]+)"\s+protocol="([^"]+)"/) {
+
+    # Extract port (destination port) — must NOT match source-port or forward-port
+    if ($rule_text =~ /(?<!source-)(?<!forward-)port\s+port="([^"]+)"\s+protocol="([^"]+)"/) {
         $parsed{'port'} = $1;
-        $parsed{'protocol'} = $2;
+        $parsed{'port_protocol'} = $2;
     }
-    
+
+    # Extract source-port
+    if ($rule_text =~ /source-port\s+port="([^"]+)"\s+protocol="([^"]+)"/) {
+        $parsed{'source_port'} = $1;
+        $parsed{'source_port_protocol'} = $2;
+    }
+
     # Extract protocol value
     if ($rule_text =~ /protocol\s+value="([^"]+)"/) {
         $parsed{'protocol_value'} = $1;
     }
-    
+
     # Extract ICMP block
     if ($rule_text =~ /icmp-block\s+name="([^"]+)"/) {
         $parsed{'icmp_block'} = $1;
     }
-    
+
+    # Extract ICMP type
+    if ($rule_text =~ /icmp-type\s+name="([^"]+)"/) {
+        $parsed{'icmp_type'} = $1;
+    }
+
     # Extract masquerade
-    if ($rule_text =~ /masquerade/) {
+    if ($rule_text =~ /\bmasquerade\b/) {
         $parsed{'masquerade'} = 1;
     }
-    
+
     # Extract forward port
     if ($rule_text =~ /forward-port\s+port="([^"]+)"\s+protocol="([^"]+)"(?:\s+to-port="([^"]+)")?(?:\s+to-addr="([^"]+)")?/) {
         $parsed{'forward_port'} = $1;
@@ -618,30 +657,48 @@ sub parse_rich_rule
         $parsed{'forward_to_port'} = $3 if $3;
         $parsed{'forward_to_addr'} = $4 if $4;
     }
-    
-    # Extract logging
-    if ($rule_text =~ /log(?:\s+prefix="([^"]*)")?(?:\s+level="([^"]+)")?(?:\s+limit\s+value="([^"]+)")?/) {
+
+    # Extract nflog (check before log to avoid false match)
+    if ($rule_text =~ /\bnflog\b/) {
+        $parsed{'nflog'} = 1;
+        if ($rule_text =~ /nflog[^"]*group="([^"]+)"/) { $parsed{'nflog_group'} = $1; }
+        if ($rule_text =~ /nflog[^"]*prefix="([^"]*)"/) { $parsed{'nflog_prefix'} = $1; }
+        if ($rule_text =~ /nflog[^"]*queue-size="([^"]+)"/) { $parsed{'nflog_queue_size'} = $1; }
+        if ($rule_text =~ /nflog[^"]*limit\s+value="([^"]+)"/) { $parsed{'nflog_limit'} = $1; }
+    }
+    # Extract syslog — only if nflog not present (avoid matching "log" inside "nflog")
+    elsif ($rule_text =~ /\blog\b/) {
         $parsed{'log'} = 1;
-        $parsed{'log_prefix'} = $1 if defined $1;
-        $parsed{'log_level'} = $2 if $2;
-        $parsed{'log_limit'} = $3 if $3;
+        if ($rule_text =~ /\blog[^"]*prefix="([^"]*)"/) { $parsed{'log_prefix'} = $1; }
+        if ($rule_text =~ /\blog[^"]*level="([^"]+)"/) { $parsed{'log_level'} = $1; }
+        if ($rule_text =~ /\blog[^"]*limit\s+value="([^"]+)"/) { $parsed{'log_limit'} = $1; }
     }
-    
+
     # Extract audit
-    if ($rule_text =~ /audit/) {
+    if ($rule_text =~ /\baudit\b/) {
         $parsed{'audit'} = 1;
+        if ($rule_text =~ /audit\s+limit\s+value="([^"]+)"/) {
+            $parsed{'audit_limit'} = $1;
+        }
     }
-    
-    # Extract action
-    if ($rule_text =~ /accept/) {
-        $parsed{'action'} = 'accept';
-    } elsif ($rule_text =~ /reject(?:\s+type="([^"]+)")?/) {
+
+    # Extract action — match at end of rule to avoid false positives
+    if ($rule_text =~ /\bmark\s+set="([^"]+)"(?:\s+limit\s+value="([^"]+)")?/) {
+        $parsed{'action'} = 'mark';
+        $parsed{'mark_value'} = $1;
+        $parsed{'action_limit'} = $2 if $2;
+    } elsif ($rule_text =~ /\breject(?:\s+type="([^"]+)")?(?:\s+limit\s+value="([^"]+)")?/) {
         $parsed{'action'} = 'reject';
         $parsed{'reject_type'} = $1 if $1;
-    } elsif ($rule_text =~ /drop/) {
+        $parsed{'action_limit'} = $2 if $2;
+    } elsif ($rule_text =~ /\baccept(?:\s+limit\s+value="([^"]+)")?/) {
+        $parsed{'action'} = 'accept';
+        $parsed{'action_limit'} = $1 if $1;
+    } elsif ($rule_text =~ /\bdrop(?:\s+limit\s+value="([^"]+)")?/) {
         $parsed{'action'} = 'drop';
+        $parsed{'action_limit'} = $1 if $1;
     }
-    
+
     return \%parsed;
 }
 
@@ -649,168 +706,316 @@ sub parse_rich_rule
 sub construct_rich_rule
 {
     my (%opts) = @_;
-    
+
     my $rule = "rule";
-    
-    # Add priority
-    if ($opts{'priority'}) {
+
+    # Priority (must come first after "rule")
+    if (defined $opts{'priority'} && $opts{'priority'} ne '') {
         $rule .= " priority=\"" . $opts{'priority'} . "\"";
     }
-    
-    # Add family
+
+    # Family
     if ($opts{'family'} && $opts{'family'} ne 'both') {
         $rule .= " family=\"" . $opts{'family'} . "\"";
     }
-    
-    # Add source
+
+    # Source (with NOT inversion)
+    my $src_not = $opts{'source_not'} ? "NOT " : "";
     if ($opts{'source_address'}) {
-        $rule .= " source address=\"" . $opts{'source_address'} . "\"";
+        $rule .= " source ${src_not}address=\"" . $opts{'source_address'} . "\"";
     } elsif ($opts{'source_mac'}) {
-        $rule .= " source mac=\"" . $opts{'source_mac'} . "\"";
-    } elsif ($opts{'source_interface'}) {
-        $rule .= " source interface=\"" . $opts{'source_interface'} . "\"";
+        $rule .= " source ${src_not}mac=\"" . $opts{'source_mac'} . "\"";
     } elsif ($opts{'source_ipset'}) {
-        $rule .= " source ipset=\"" . $opts{'source_ipset'} . "\"";
+        $rule .= " source ${src_not}ipset=\"" . $opts{'source_ipset'} . "\"";
     }
-    
-    # Add destination
+
+    # Destination (with NOT inversion)
+    my $dst_not = $opts{'destination_not'} ? "NOT " : "";
     if ($opts{'destination_address'}) {
-        $rule .= " destination address=\"" . $opts{'destination_address'} . "\"";
-    } elsif ($opts{'destination_interface'}) {
-        $rule .= " destination interface=\"" . $opts{'destination_interface'} . "\"";
+        $rule .= " destination ${dst_not}address=\"" . $opts{'destination_address'} . "\"";
+    } elsif ($opts{'destination_ipset'}) {
+        $rule .= " destination ${dst_not}ipset=\"" . $opts{'destination_ipset'} . "\"";
     }
-    
-    # Add service or port
+
+    # Elements (mutually exclusive: service, protocol, icmp-block, icmp-type, masquerade, forward-port)
     if ($opts{'service_name'}) {
         $rule .= " service name=\"" . $opts{'service_name'} . "\"";
-    } elsif ($opts{'port'} && $opts{'protocol'}) {
-        $rule .= " port port=\"" . $opts{'port'} . "\" protocol=\"" . $opts{'protocol'} . "\"";
-    }
-    
-    # Add protocol value
-    if ($opts{'protocol_value'}) {
+    } elsif ($opts{'protocol_value'}) {
         $rule .= " protocol value=\"" . $opts{'protocol_value'} . "\"";
-    }
-    
-    # Add ICMP block
-    if ($opts{'icmp_block'}) {
+    } elsif ($opts{'icmp_block'}) {
         $rule .= " icmp-block name=\"" . $opts{'icmp_block'} . "\"";
-    }
-    
-    # Add masquerade
-    if ($opts{'masquerade'}) {
+    } elsif ($opts{'icmp_type'}) {
+        $rule .= " icmp-type name=\"" . $opts{'icmp_type'} . "\"";
+    } elsif ($opts{'masquerade'}) {
         $rule .= " masquerade";
-    }
-    
-    # Add forward port
-    if ($opts{'forward_port'} && $opts{'forward_protocol'}) {
+    } elsif ($opts{'forward_port'} && $opts{'forward_protocol'}) {
         $rule .= " forward-port port=\"" . $opts{'forward_port'} . "\" protocol=\"" . $opts{'forward_protocol'} . "\"";
-        if ($opts{'forward_to_port'}) {
-            $rule .= " to-port=\"" . $opts{'forward_to_port'} . "\"";
-        }
-        if ($opts{'forward_to_addr'}) {
-            $rule .= " to-addr=\"" . $opts{'forward_to_addr'} . "\"";
-        }
+        $rule .= " to-port=\"" . $opts{'forward_to_port'} . "\"" if $opts{'forward_to_port'};
+        $rule .= " to-addr=\"" . $opts{'forward_to_addr'} . "\"" if $opts{'forward_to_addr'};
     }
-    
-    # Add logging
+
+    # Port (destination port) — independent of element
+    if ($opts{'port'} && $opts{'port_protocol'}) {
+        $rule .= " port port=\"" . $opts{'port'} . "\" protocol=\"" . $opts{'port_protocol'} . "\"";
+    }
+
+    # Source port
+    if ($opts{'source_port'} && $opts{'source_port_protocol'}) {
+        $rule .= " source-port port=\"" . $opts{'source_port'} . "\" protocol=\"" . $opts{'source_port_protocol'} . "\"";
+    }
+
+    # Syslog
     if ($opts{'log'}) {
         $rule .= " log";
-        if ($opts{'log_prefix'}) {
-            $rule .= " prefix=\"" . $opts{'log_prefix'} . "\"";
-        }
-        if ($opts{'log_level'}) {
-            $rule .= " level=\"" . $opts{'log_level'} . "\"";
-        }
-        if ($opts{'log_limit'}) {
-            $rule .= " limit value=\"" . $opts{'log_limit'} . "\"";
-        }
+        $rule .= " prefix=\"" . $opts{'log_prefix'} . "\"" if $opts{'log_prefix'};
+        $rule .= " level=\"" . $opts{'log_level'} . "\"" if $opts{'log_level'};
+        $rule .= " limit value=\"" . $opts{'log_limit'} . "\"" if $opts{'log_limit'};
     }
-    
-    # Add audit
+
+    # nflog
+    if ($opts{'nflog'}) {
+        $rule .= " nflog";
+        $rule .= " group=\"" . $opts{'nflog_group'} . "\"" if defined $opts{'nflog_group'} && $opts{'nflog_group'} ne '';
+        $rule .= " prefix=\"" . $opts{'nflog_prefix'} . "\"" if $opts{'nflog_prefix'};
+        $rule .= " queue-size=\"" . $opts{'nflog_queue_size'} . "\"" if defined $opts{'nflog_queue_size'} && $opts{'nflog_queue_size'} ne '';
+        $rule .= " limit value=\"" . $opts{'nflog_limit'} . "\"" if $opts{'nflog_limit'};
+    }
+
+    # Audit
     if ($opts{'audit'}) {
         $rule .= " audit";
+        $rule .= " limit value=\"" . $opts{'audit_limit'} . "\"" if $opts{'audit_limit'};
     }
-    
-    # Add action
+
+    # Action
     if ($opts{'action'} eq 'accept') {
         $rule .= " accept";
     } elsif ($opts{'action'} eq 'reject') {
         $rule .= " reject";
-        if ($opts{'reject_type'}) {
-            $rule .= " type=\"" . $opts{'reject_type'} . "\"";
-        }
+        $rule .= " type=\"" . $opts{'reject_type'} . "\"" if $opts{'reject_type'};
     } elsif ($opts{'action'} eq 'drop') {
         $rule .= " drop";
+    } elsif ($opts{'action'} eq 'mark') {
+        $rule .= " mark set=\"" . ($opts{'mark_value'} || '0x1') . "\"";
     }
-    
+    # Action rate limit
+    if ($opts{'action'} && $opts{'action'} ne 'none' && $opts{'action_limit'}) {
+        $rule .= " limit value=\"" . $opts{'action_limit'} . "\"";
+    }
+
     return $rule;
+}
+
+# Build rule_opts hash from form %in — shared by save.cgi and test_rule.cgi
+sub build_rule_from_form
+{
+    my (%in) = @_;
+    my %opts;
+    my @errors;
+
+    # Family
+    $opts{'family'} = $in{'family'} if ($in{'family'} && $in{'family'} ne 'both');
+
+    # Priority
+    if (defined $in{'priority'} && $in{'priority'} ne '') {
+        my $p = $in{'priority'};
+        if ($p =~ /^-?\d+$/ && $p >= -32768 && $p <= 32767) {
+            $opts{'priority'} = $p;
+        } else {
+            push @errors, 'save_err_priority';
+        }
+    }
+
+    # Source
+    my $source_type = $in{'source_type'} || 'none';
+    if ($source_type eq 'address' && $in{'source_address'}) {
+        $opts{'source_address'} = $in{'source_address'};
+        if (!&check_ipaddress($in{'source_address'}) &&
+            !&check_ip6address($in{'source_address'}) &&
+            $in{'source_address'} !~ /^[\d\.\/]+$/ &&
+            $in{'source_address'} !~ /^[a-fA-F0-9:\/]+$/) {
+            push @errors, 'save_err_source_address';
+        }
+    } elsif ($source_type eq 'mac' && $in{'source_mac'}) {
+        $opts{'source_mac'} = $in{'source_mac'};
+        if ($in{'source_mac'} !~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+            push @errors, 'save_err_source_mac';
+        }
+    } elsif ($source_type eq 'ipset' && $in{'source_ipset'}) {
+        $opts{'source_ipset'} = $in{'source_ipset'};
+        if ($in{'source_ipset'} !~ /^[a-zA-Z0-9_.-]+$/) {
+            push @errors, 'save_err_source_ipset';
+        }
+    }
+    $opts{'source_not'} = 1 if ($in{'source_not'} && $source_type ne 'none');
+
+    # Destination
+    my $dest_type = $in{'destination_type'} || 'none';
+    if ($dest_type eq 'address' && $in{'destination_address'}) {
+        $opts{'destination_address'} = $in{'destination_address'};
+        if (!&check_ipaddress($in{'destination_address'}) &&
+            !&check_ip6address($in{'destination_address'}) &&
+            $in{'destination_address'} !~ /^[\d\.\/]+$/ &&
+            $in{'destination_address'} !~ /^[a-fA-F0-9:\/]+$/) {
+            push @errors, 'save_err_destination_address';
+        }
+    } elsif ($dest_type eq 'ipset' && $in{'destination_ipset'}) {
+        $opts{'destination_ipset'} = $in{'destination_ipset'};
+        if ($in{'destination_ipset'} !~ /^[a-zA-Z0-9_.-]+$/) {
+            push @errors, 'save_err_destination_ipset';
+        }
+    }
+    $opts{'destination_not'} = 1 if ($in{'destination_not'} && $dest_type ne 'none');
+
+    # Port (destination port — in Destination section)
+    if ($in{'port_value'} && $in{'port_value'} =~ /\S/) {
+        my $pv = $in{'port_value'};
+        if ($pv =~ /^(\d+)(-(\d+))?$/) {
+            my ($s, $e) = ($1, $3);
+            if ($s < 1 || $s > 65535 || (defined $e && ($e < 1 || $e > 65535 || $s > $e))) {
+                push @errors, 'save_err_port';
+            }
+        } else {
+            push @errors, 'save_err_port';
+        }
+        $opts{'port'} = $pv;
+        $opts{'port_protocol'} = $in{'port_protocol'} || 'tcp';
+        if ($opts{'port_protocol'} !~ /^(tcp|udp|sctp|dccp)$/) {
+            push @errors, 'save_err_protocol';
+        }
+    }
+
+    # Source port
+    if ($in{'source_port_value'} && $in{'source_port_value'} =~ /\S/) {
+        my $spv = $in{'source_port_value'};
+        if ($spv =~ /^(\d+)(-(\d+))?$/) {
+            my ($s, $e) = ($1, $3);
+            if ($s < 1 || $s > 65535 || (defined $e && ($e < 1 || $e > 65535 || $s > $e))) {
+                push @errors, 'save_err_source_port';
+            }
+        } else {
+            push @errors, 'save_err_source_port';
+        }
+        $opts{'source_port'} = $spv;
+        $opts{'source_port_protocol'} = $in{'source_port_protocol'} || 'tcp';
+    }
+
+    # Element type
+    my $elem = $in{'element_type'} || 'none';
+    if ($elem eq 'service' && $in{'service_name'}) {
+        $opts{'service_name'} = $in{'service_name'};
+    } elsif ($elem eq 'protocol' && $in{'protocol_value'}) {
+        $opts{'protocol_value'} = $in{'protocol_value'};
+    } elsif ($elem eq 'icmp-block' && $in{'icmp_block'}) {
+        $opts{'icmp_block'} = $in{'icmp_block'};
+    } elsif ($elem eq 'icmp-type' && $in{'icmp_type'}) {
+        $opts{'icmp_type'} = $in{'icmp_type'};
+    } elsif ($elem eq 'masquerade') {
+        $opts{'masquerade'} = 1;
+    } elsif ($elem eq 'forward-port') {
+        if ($in{'forward_port_value'}) {
+            $opts{'forward_port'} = $in{'forward_port_value'};
+            $opts{'forward_protocol'} = $in{'forward_port_protocol'} || 'tcp';
+            $opts{'forward_to_port'} = $in{'forward_to_port'} if $in{'forward_to_port'};
+            $opts{'forward_to_addr'} = $in{'forward_to_addr'} if $in{'forward_to_addr'};
+        }
+    }
+
+    # Logging
+    my $log_type = $in{'log_type'} || 'none';
+    if ($log_type eq 'log') {
+        $opts{'log'} = 1;
+        $opts{'log_prefix'} = $in{'log_prefix'} if $in{'log_prefix'};
+        $opts{'log_level'} = $in{'log_level'} if $in{'log_level'};
+        if ($in{'log_limit_rate'} && $in{'log_limit_unit'}) {
+            $opts{'log_limit'} = $in{'log_limit_rate'} . '/' . $in{'log_limit_unit'};
+        }
+    } elsif ($log_type eq 'nflog') {
+        $opts{'nflog'} = 1;
+        $opts{'nflog_prefix'} = $in{'log_prefix'} if $in{'log_prefix'};
+        $opts{'nflog_group'} = $in{'nflog_group'} if defined $in{'nflog_group'} && $in{'nflog_group'} ne '';
+        $opts{'nflog_queue_size'} = $in{'nflog_queue_size'} if defined $in{'nflog_queue_size'} && $in{'nflog_queue_size'} ne '';
+        if ($in{'log_limit_rate'} && $in{'log_limit_unit'}) {
+            $opts{'nflog_limit'} = $in{'log_limit_rate'} . '/' . $in{'log_limit_unit'};
+        }
+    }
+
+    # Audit
+    if ($in{'audit'}) {
+        $opts{'audit'} = 1;
+        if ($in{'audit_limit_rate'} && $in{'audit_limit_unit'}) {
+            $opts{'audit_limit'} = $in{'audit_limit_rate'} . '/' . $in{'audit_limit_unit'};
+        }
+    }
+
+    # Action
+    my $action = $in{'action'} || 'none';
+    if ($action ne 'none') {
+        $opts{'action'} = $action;
+        if ($action eq 'reject' && $in{'reject_type'}) {
+            $opts{'reject_type'} = $in{'reject_type'};
+        }
+        if ($action eq 'mark' && $in{'mark_value'}) {
+            $opts{'mark_value'} = $in{'mark_value'};
+        }
+        if ($in{'action_limit_rate'} && $in{'action_limit_unit'}) {
+            $opts{'action_limit'} = $in{'action_limit_rate'} . '/' . $in{'action_limit_unit'};
+        }
+    }
+
+    return (\%opts, \@errors);
 }
 
 # Validate rich rule syntax and components
 sub validate_rich_rule
 {
     my ($rule_text) = @_;
-    
+
     return "No rule text provided" if (!$rule_text || $rule_text !~ /\S/);
-    
-    # Basic syntax check
     return "Rule must start with 'rule'" if ($rule_text !~ /^rule\s/);
-    
-    # Parse the rule to validate components
+
     my $parsed = parse_rich_rule($rule_text);
     return "Failed to parse rule" if (!$parsed);
-    
-    # Validate family
+
     if ($parsed->{'family'} && $parsed->{'family'} !~ /^(ipv4|ipv6)$/) {
         return "Invalid family: must be ipv4 or ipv6";
     }
-    
-    # Validate source address
     if ($parsed->{'source_address'}) {
         my $addr = $parsed->{'source_address'};
         if ($addr !~ /^[\d\.\/]+$/ && $addr !~ /^[a-fA-F0-9:\/]+$/) {
             return "Invalid source address format";
         }
     }
-    
-    # Validate MAC address
     if ($parsed->{'source_mac'}) {
-        my $mac = $parsed->{'source_mac'};
-        if ($mac !~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
+        if ($parsed->{'source_mac'} !~ /^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$/) {
             return "Invalid MAC address format";
         }
     }
-    
-    # Validate port
     if ($parsed->{'port'}) {
         my $port = $parsed->{'port'};
         if ($port =~ /^(\d+)-(\d+)$/) {
-            my ($start, $end) = ($1, $2);
-            return "Invalid port range" if ($start < 1 || $end > 65535 || $start > $end);
+            return "Invalid port range" if ($1 < 1 || $2 > 65535 || $1 > $2);
         } elsif ($port =~ /^\d+$/) {
             return "Invalid port number" if ($port < 1 || $port > 65535);
         } else {
             return "Invalid port format";
         }
     }
-    
-    # Validate protocol
-    if ($parsed->{'protocol'} && $parsed->{'protocol'} !~ /^(tcp|udp|sctp|dccp)$/) {
+    if ($parsed->{'port_protocol'} && $parsed->{'port_protocol'} !~ /^(tcp|udp|sctp|dccp)$/) {
         return "Invalid protocol: must be tcp, udp, sctp, or dccp";
     }
-    
-    # Validate action
-    if ($parsed->{'action'} && $parsed->{'action'} !~ /^(accept|reject|drop)$/) {
-        return "Invalid action: must be accept, reject, or drop";
+    if ($parsed->{'action'} && $parsed->{'action'} !~ /^(accept|reject|drop|mark)$/) {
+        return "Invalid action: must be accept, reject, drop, or mark";
     }
-    
-    # Validate log level
     if ($parsed->{'log_level'} && $parsed->{'log_level'} !~ /^(emerg|alert|crit|err|warn|notice|info|debug)$/) {
         return "Invalid log level";
     }
-    
-    return undef; # No errors
+    if (defined $parsed->{'priority'} && $parsed->{'priority'} ne '') {
+        my $p = $parsed->{'priority'};
+        return "Invalid priority" if ($p !~ /^-?\d+$/ || $p < -32768 || $p > 32767);
+    }
+
+    return undef;
 }
 
 # Shell-escape a rich rule for use inside single quotes
