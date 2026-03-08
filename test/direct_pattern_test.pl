@@ -8,22 +8,22 @@ use warnings;
 print "=== Direct Pattern Test ===\n";
 print "Testing the exact categorization patterns without module dependencies\n\n";
 
-# Real production rules from your system
+# Example fail2ban-style rules (RFC 5737 test addresses)
 my @fail2ban_rules = (
-    'rule family="ipv4" source address="81.30.107.130" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="196.251.92.124" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.121" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.173" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.90" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.153" port port="465" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="66.63.187.118" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"'
+    'rule family="ipv4" source address="198.51.100.10" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.11" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.12" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.13" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.14" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.15" port port="465" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.16" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"'
 );
 
 my @admin_rules = (
-    'rule family="ipv4" source address="62.194.144.0/20" port port="2324" protocol="tcp" accept',
-    'rule family="ipv4" source address="165.22.196.252/24" port port="2324" protocol="tcp" accept',
-    'rule family="ipv4" source address="141.98.11.0/24" drop',
-    'rule family="ipv4" source address="45.129.14.0/24" drop'
+    'rule family="ipv4" source address="192.0.2.0/20" port port="22" protocol="tcp" accept',
+    'rule family="ipv4" source address="203.0.113.0/24" port port="22" protocol="tcp" accept',
+    'rule family="ipv4" source address="198.51.100.0/24" drop',
+    'rule family="ipv4" source address="198.51.100.128/24" drop'
 );
 
 # Copy the exact categorization logic from the module

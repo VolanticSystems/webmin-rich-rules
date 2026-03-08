@@ -1,0 +1,8 @@
+<header>IP Set</header>
+A firewalld IP set is a named collection of IP addresses, networks, or MAC addresses
+managed by the <tt>ipset</tt> tool or firewalld. Instead of creating hundreds of
+individual rules for each IP, you define a set (e.g. <tt>blocklist</tt>) containing
+all the IPs, then reference it by name in a single rule.<br><br>
+To see defined IP sets, run: <tt>firewall-cmd --get-ipsets</tt><br>
+To create one: <tt>firewall-cmd --new-ipset=mylist --type=hash:ip --permanent</tt><br>
+To add IPs: <tt>firewall-cmd --ipset=mylist --add-entry=192.168.1.10 --permanent</tt>

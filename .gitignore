@@ -1,7 +1,9 @@
 *.backup
-test/
 test_categorization.pl
 test_index_fix.pl
 .claude/
 DEV-PLAN.md
 CHANGELOG.md
+REQUIREMENTS.md
+addnewmockup.md
+kc3-settings.md

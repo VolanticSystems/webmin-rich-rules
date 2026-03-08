@@ -154,9 +154,9 @@ print "TEST 6: fail2ban Pattern Accuracy\n";
 print "=" x 50 . "\n";
 
 my @test_fail2ban_rules = (
-    'rule family="ipv4" source address="81.30.107.90" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="66.63.187.118" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.173" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"'
+    'rule family="ipv4" source address="198.51.100.14" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.16" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.13" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"'
 );
 
 my $pattern_matches = 0;
