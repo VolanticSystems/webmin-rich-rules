@@ -170,7 +170,7 @@ WEBMIN_CONFIG=/etc/webmin \
 WEBMIN_VAR=/var/webmin \
 REMOTE_USER=root \
 REQUEST_METHOD=GET \
-SERVER_PORT=9595 \
+SERVER_PORT=10000 \
 GATEWAY_INTERFACE=CGI/1.1 \
 FOREIGN_MODULE_NAME=firewalld-rich \
 DOCUMENT_ROOT=/usr/libexec/webmin \
@@ -180,11 +180,11 @@ DOCUMENT_ROOT=/usr/libexec/webmin \
 Or test through curl with session auth:
 ```bash
 # Get session cookie
-SID=$(curl -sk -c - "https://localhost:9595/session_login.cgi" \
+SID=$(curl -sk -c - "https://localhost:10000/session_login.cgi" \
   -d "user=root&pass=YOURPASS" | grep sid | awk '{print $NF}')
 
 # Hit the module
-curl -sk -b "sid=$SID" "https://localhost:9595/firewalld-rich/" | head -100
+curl -sk -b "sid=$SID" "https://localhost:10000/firewalld-rich/" | head -100
 ```
 
 ## Webmin Logging

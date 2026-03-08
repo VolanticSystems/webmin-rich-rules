@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # Direct Categorization Function Test
-# Tests the actual broken categorize_rich_rule() function with real production rules
+# Tests the categorize_rich_rule() function with representative rule samples
 
 use strict;
 use warnings;
@@ -17,24 +17,24 @@ require 'firewalld-rich-lib.pl';
 print "=== Direct Categorization Function Test ===\n";
 print "Testing the categorize_rich_rule() function that returns 0 instead of detecting fail2ban\n\n";
 
-# Real production rules that should be categorized as fail2ban
-# These are the exact rules from the manual test that found 187 matches
+# Example rules that should be categorized as fail2ban
+# RFC 5737 test addresses used throughout
 my @test_rules = (
-    'rule family="ipv4" source address="81.30.107.130" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="196.251.92.124" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.121" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.173" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.90" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="81.30.107.153" port port="465" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="66.63.187.118" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.10" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.11" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.12" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.13" port port="pop3s" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.14" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.15" port port="465" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="198.51.100.16" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
     
     # Admin rules that should NOT be categorized as fail2ban
-    'rule family="ipv4" source address="62.194.144.0/20" port port="2324" protocol="tcp" accept',
-    'rule family="ipv4" source address="165.22.196.252/24" port port="2324" protocol="tcp" accept',
+    'rule family="ipv4" source address="192.0.2.0/20" port port="22" protocol="tcp" accept',
+    'rule family="ipv4" source address="203.0.113.0/24" port port="22" protocol="tcp" accept',
     
     # Network blocks that might be admin rules
-    'rule family="ipv4" source address="141.98.11.0/24" drop',
-    'rule family="ipv4" source address="45.129.14.0/24" drop'
+    'rule family="ipv4" source address="198.51.100.0/24" drop',
+    'rule family="ipv4" source address="198.51.100.128/24" drop'
 );
 
 print "1. TESTING CATEGORIZATION FUNCTION DIRECTLY:\n";

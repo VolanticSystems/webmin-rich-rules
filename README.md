@@ -2,16 +2,36 @@
 
 A full-featured Webmin module for managing firewalld rich rules — the complex, expressive firewall rules that `firewall-cmd` supports but most GUIs ignore.
 
-![Version](https://img.shields.io/badge/version-2.1-blue)
+![Version](https://img.shields.io/badge/version-3.1.1-blue)
+![Tests](https://img.shields.io/badge/tests-40%20integration-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Linux-green)
 ![Webmin](https://img.shields.io/badge/Webmin-2.0%2B-orange)
 ![License](https://img.shields.io/badge/license-GPL--3.0-lightgrey)
 
+## What is Webmin?
+
+[Webmin](https://webmin.com) is an open-source web-based system administration tool for Unix-like servers, created by Jamie Cameron in 1997. It provides a browser UI for managing users, services, packages, cron, DNS, email, and more — replacing the need to hand-edit config files over SSH. With over a million installations worldwide, it's one of the most widely deployed server admin panels. Its companion project [Virtualmin](https://virtualmin.com) adds hosting control (domains, databases, email accounts). Webmin modules are self-contained Perl CGI programs that plug into the framework, each managing one system service.
+
 ## Why This Exists
 
-FirewallD rich rules are powerful — source/destination filtering, per-rule logging, rate limiting, port forwarding, protocol matching, reject types — but managing them from the command line is tedious and error-prone. One misplaced quote and your rule silently fails.
+FirewallD rich rules are powerful — source/destination filtering, per-rule logging, rate limiting, port forwarding, protocol matching, reject types — but managing them from the command line is tedious and error-prone. One misplaced quote and your rule silently fails. No existing Webmin module handled them.
 
 This module gives you a proper UI inside Webmin: browse, search, filter, create, edit, clone, test, and bulk-manage rich rules across all zones. It also auto-categorizes rules by origin (admin-created vs. fail2ban-generated), so you can see at a glance what's what.
+
+## Why This is Hard
+
+A rich rule isn't a simple "allow port 80" — it's a combination of:
+
+- **9 element types**: port, source-port, service, protocol, icmp-block, icmp-type, masquerade, forward-port, mark
+- **Source options**: IPv4 address, IPv6 address, MAC, ipset, inverted (NOT) variants
+- **Destination options**: IPv4/IPv6 address, inverted
+- **5 actions**: accept, reject (with 6 reject-type variants), drop, mark, none (for icmp-block)
+- **Logging**: syslog with prefix/level/rate-limit, nflog with group/prefix/queue-depth, audit
+- **Rate limits**: on the action itself, on logging, with configurable units
+- **Priority**: -32768 to 32767
+- **Family**: IPv4, IPv6, or both
+
+The permutation space is hundreds of valid configurations, many with subtle interactions (e.g., masquerade can't have an action, icmp-block implies reject, forward-port requires a protocol). The form must handle all of these correctly, the preview must render them in exact `firewall-cmd` syntax, and the parser must round-trip rules from firewalld back into form fields without losing information. Systematic coverage of this space required tooling beyond manual testing.
 
 ## Features
 
@@ -37,6 +57,25 @@ This module gives you a proper UI inside Webmin: browse, search, filter, create,
 - Identifies fail2ban-managed rules automatically
 - IP info lookup with WHOIS
 - Unban IPs directly from the interface
+
+## Testing
+
+The module includes a 40-test integration suite (`test/test_rich_rules.sh`) that exercises the full HTTP interface — not mocked endpoints, but live `save.cgi`, `test_rule.cgi`, `edit.cgi`, and `index.cgi` against a running Webmin instance.
+
+**What the tests cover:**
+- All 9 element types (service, port, source-port, protocol, icmp-block, icmp-type, masquerade, forward-port, mark)
+- Source/destination options including IPv4, IPv6, MAC, and inverted (NOT) variants
+- All actions: accept, reject (default + typed), drop, mark
+- Logging: syslog with prefix/level, rate-limited logging, nflog, audit
+- Priority, family selection, action rate limits
+- Combination rules exercising multiple features at once
+- Negative tests: invalid IP, out-of-range port, bad priority, empty rule, duplicate rule
+
+**Safety design:**
+- A **failsafe watchdog** (dead-man's switch) runs in the background. If tests don't complete within 15 minutes, it restores the firewall from a pre-test baseline and reboots.
+- Tests use an isolated `richtest` zone with no bound interfaces — no live traffic is affected.
+- All test addresses are from RFC 5737 (192.0.2.0/24, 203.0.113.0/24) and RFC 3849 (2001:db8::/32) — never routable.
+- A safety check after each test category verifies critical ports (SSH, Webmin) remain reachable.
 
 ## Quick Install
 
@@ -87,11 +126,16 @@ firewalld-rich/
 ├── delete.cgi            # Delete confirmation and handler
 ├── clone.cgi             # Clone a rule to a new zone or with modifications
 ├── bulk_actions.cgi      # Bulk delete handler
+├── search_rules.cgi      # Search/filter handler
 ├── info.cgi              # IP info page (WHOIS, related rules)
 ├── unban.cgi             # fail2ban unban handler
 ├── acl_security.pl       # Webmin ACL integration
 ├── lang/en               # English language strings
-└── images/icon.gif       # Module icon (48x48)
+├── images/icon.gif       # Module icon (48x48)
+└── test/
+    ├── test_rich_rules.sh    # 40-test integration suite (bash)
+    ├── failsafe_watchdog.sh  # Dead-man's switch for test safety
+    └── *.pl                  # Perl unit tests for categorization, parsing
 ```
 
 ## Configuration
@@ -111,14 +155,10 @@ Tested on:
 
 Should work on any Linux distribution with Webmin 2.0+ and FirewallD 0.3.0+.
 
-## Contributing
-
-Issues and pull requests welcome. The code is standard Webmin Perl CGI — if you've worked with any Webmin module, you'll feel right at home.
-
 ## License
 
 GPL-3.0 — same as Webmin itself.
 
 ## Author
 
-**Bob7123** — Built because managing rich rules from the command line is a pain, and no existing Webmin module handled them properly.
+**Bob7123** — AI-assisted development used for systematic coverage of the combinatorial rule space.

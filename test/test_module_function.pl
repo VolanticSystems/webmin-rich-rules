@@ -51,7 +51,7 @@ sub categorize_rich_rule
         return 'admin';
     }
     
-    if ($rule_text =~ /port="(?:2324|3306|20000|10000)"/i) {
+    if ($rule_text =~ /port="(?:22|3306|20000|10000)"/i) {
         return 'admin';
     }
     
@@ -61,7 +61,7 @@ sub categorize_rich_rule
 print "=== Testing Module Function Directly ===\n\n";
 
 # Test with the exact same rule that works in simple test
-my $test_rule = 'rule family="ipv4" source address="81.30.107.130" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"';
+my $test_rule = 'rule family="ipv4" source address="198.51.100.10" port port="imap" protocol="tcp" reject type="icmp-port-unreachable"';
 
 print "Test rule: $test_rule\n";
 my $result = categorize_rich_rule($test_rule);
@@ -77,9 +77,9 @@ if ($result eq 'fail2ban') {
 
 # Test a few more
 my @test_rules = (
-    'rule family="ipv4" source address="81.30.107.121" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
-    'rule family="ipv4" source address="62.194.144.0/20" port port="2324" protocol="tcp" accept',
-    'rule family="ipv4" source address="141.98.11.0/24" drop'
+    'rule family="ipv4" source address="198.51.100.12" port port="smtp" protocol="tcp" reject type="icmp-port-unreachable"',
+    'rule family="ipv4" source address="192.0.2.0/20" port port="22" protocol="tcp" accept',
+    'rule family="ipv4" source address="198.51.100.0/24" drop'
 );
 
 print "\nTesting additional rules:\n";
