@@ -109,38 +109,46 @@ if ($in{'search'} || $in{'category'} || $in{'action'} || $in{'zone'} || $in{'ip'
     
     if (@matching_rules) {
         print "<p>Found " . scalar(@matching_rules) . " matching rules:</p>\n";
-        
-        # Display results table (following bind8 pattern)
+
+        # Display results table with broken-out columns
         print &ui_columns_start([
             "Type",
             "Zone",
-            "Rule Summary", 
+            "Match",
+            "Source",
+            "Port",
+            "Action",
             "Actions"
         ], 100);
-        
+
         foreach my $rule (@matching_rules) {
+            my $parsed = get_parsed_rule($rule);
             my $category = categorize_rich_rule($rule->{'text'});
             my $category_display = ucfirst($category);
-            my $category_color = ($category eq 'admin') ? "green" : 
-                                ($category eq 'fail2ban') ? "red" : "black";
-            
-            my $rule_summary = &format_rule_summary($rule);
-            
-            my $actions = &ui_link("edit.cgi?zone=" . &urlize($rule->{'zone'}) . 
-                                  "&idx=" . $rule->{'index'}, "[Edit]");
-            $actions .= " | " . &ui_link("clone.cgi?zone=" . &urlize($rule->{'zone'}) . 
+
+            my $match_val = _search_extract_match($parsed);
+            my $source_val = _search_extract_source($parsed);
+            my $port_val = _search_extract_port($parsed);
+            my $action_val = _search_extract_action($parsed);
+            my $edit_url = "edit.cgi?zone=" . &urlize($rule->{'zone'}) . "&idx=" . $rule->{'index'};
+
+            my $actions = &ui_link($edit_url, "[Edit]");
+            $actions .= " | " . &ui_link("clone.cgi?zone=" . &urlize($rule->{'zone'}) .
                                         "&idx=" . $rule->{'index'}, "[Clone]");
-            $actions .= " | " . &ui_link("delete.cgi?zone=" . &urlize($rule->{'zone'}) . 
+            $actions .= " | " . &ui_link("delete.cgi?zone=" . &urlize($rule->{'zone'}) .
                                         "&idx=" . $rule->{'index'}, "[Delete]");
-            
+
             print &ui_columns_row([
-                "<span style='color: $category_color; font-weight: bold;'>$category_display</span>",
+                "<b>$category_display</b>",
                 $rule->{'zone'},
-                $rule_summary,
+                "<tt>" . &html_escape($match_val) . "</tt>",
+                "<tt>" . &ui_link($edit_url, &html_escape($source_val)) . "</tt>",
+                "<tt>" . &html_escape($port_val) . "</tt>",
+                "<tt>" . &html_escape($action_val) . "</tt>",
                 $actions
             ]);
         }
-        
+
         print &ui_columns_end();
     } else {
         print "<p><strong>No rules found matching the search criteria.</strong></p>\n";
@@ -193,3 +201,56 @@ if ($in{'search'} || $in{'category'} || $in{'action'} || $in{'zone'} || $in{'ip'
 }
 
 &ui_print_footer("index.cgi", "Return to Rules List");
+
+# Column extraction helpers (mirrors index.cgi logic)
+sub _search_extract_match {
+    my ($parsed) = @_;
+    return "service" if $parsed->{'service_name'};
+    return "port" if $parsed->{'port'} && $parsed->{'port_protocol'};
+    return "protocol" if $parsed->{'protocol_value'};
+    return "icmp-block" if $parsed->{'icmp_block'};
+    return "icmp-type" if $parsed->{'icmp_type'};
+    return "masquerade" if $parsed->{'masquerade'};
+    return "forward-port" if $parsed->{'forward_port'};
+    return "source-port" if $parsed->{'source_port'};
+    return "";
+}
+
+sub _search_extract_source {
+    my ($parsed) = @_;
+    my $not = $parsed->{'source_not'} ? "NOT " : "";
+    return "${not}" . $parsed->{'source_address'} if $parsed->{'source_address'};
+    return "${not}MAC " . $parsed->{'source_mac'} if $parsed->{'source_mac'};
+    return "${not}ipset:" . $parsed->{'source_ipset'} if $parsed->{'source_ipset'};
+    my $dst_not = $parsed->{'destination_not'} ? "NOT " : "";
+    return "to ${dst_not}" . $parsed->{'destination_address'} if $parsed->{'destination_address'};
+    return "to ${dst_not}ipset:" . $parsed->{'destination_ipset'} if $parsed->{'destination_ipset'};
+    return "";
+}
+
+sub _search_extract_port {
+    my ($parsed) = @_;
+    my @parts;
+    push @parts, $parsed->{'service_name'} if $parsed->{'service_name'};
+    push @parts, $parsed->{'port_protocol'} . "/" . $parsed->{'port'} if $parsed->{'port'} && $parsed->{'port_protocol'};
+    push @parts, "sport " . $parsed->{'source_port_protocol'} . "/" . $parsed->{'source_port'} if $parsed->{'source_port'} && $parsed->{'source_port_protocol'};
+    push @parts, "proto " . $parsed->{'protocol_value'} if $parsed->{'protocol_value'};
+    push @parts, $parsed->{'icmp_block'} if $parsed->{'icmp_block'};
+    push @parts, $parsed->{'icmp_type'} if $parsed->{'icmp_type'};
+    if ($parsed->{'forward_port'}) {
+        my $fwd = $parsed->{'forward_protocol'} . "/" . $parsed->{'forward_port'} . "\x{2192}";
+        $fwd .= $parsed->{'forward_to_addr'} ? $parsed->{'forward_to_addr'} . ":" . ($parsed->{'forward_to_port'} || $parsed->{'forward_port'}) : ($parsed->{'forward_to_port'} || $parsed->{'forward_port'});
+        push @parts, $fwd;
+    }
+    return join(", ", @parts);
+}
+
+sub _search_extract_action {
+    my ($parsed) = @_;
+    my @parts;
+    push @parts, uc($parsed->{'action'}) if $parsed->{'action'};
+    push @parts, "NFLOG" if $parsed->{'nflog'};
+    push @parts, "LOG" if !$parsed->{'nflog'} && $parsed->{'log'};
+    push @parts, "AUDIT" if $parsed->{'audit'};
+    return join(", ", @parts);
+}

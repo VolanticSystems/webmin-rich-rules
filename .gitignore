@@ -1,4 +1,5 @@
 *.backup
+*.wbm.gz
 test_categorization.pl
 test_index_fix.pl
 .claude/
@@ -7,3 +8,5 @@ CHANGELOG.md
 REQUIREMENTS.md
 addnewmockup.md
 kc3-settings.md
+outreach-posts.md
+revision5-checklist.md

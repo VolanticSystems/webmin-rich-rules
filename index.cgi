@@ -61,19 +61,11 @@ $add_rule_url .= "&zone=" . &urlize($zone_filter) if $zone_filter;
 # Performance profiling (Time::HiRes loaded in lib with fallback)
 my $start_time = [gettimeofday()] if $debug_enabled;
 
-# Get module version and build timestamp for header
-my $module_version = "2.0";
-my $build_timestamp = "2026-02-23";
+# Read module version from module.info
+my %minfo = &get_module_info($module_name);
+my $module_version = $minfo{'version'} || '?';
 
-# Build page header with configurable version info
-my $header_title = $text{'index_title'};
-if ($config{'show_version_number'}) {
-    $header_title .= " v$module_version";
-}
-if ($config{'show_version_timestamp'}) {
-    $header_title .= " ($build_timestamp)";
-}
-&ui_print_header(undef, $header_title, "", undef, 1, 1, 0, &help_search_link("firewalld-rich", "intro"));
+&ui_print_header("Version $module_version", $text{'index_title'}, "", undef, 1, 1, 0, &help_search_link("firewalld-rich", "intro"));
 
 # Tab interface with proper categorization
 my $active_tab = $in{'tab'} || 'admin';  # Default to admin rules tab
@@ -105,6 +97,21 @@ print "    for (var i = 0; i < checkboxes.length; i++) {\n";
 print "        checkboxes[i].checked = source.checked;\n";
 print "    }\n";
 print "}\n";
+print "// Fix Authentic theme three-way sort cycle (asc->desc->neutral)\n";
+print "// The theme's order.dt handler resets ascending sorts to neutral,\n";
+print "// causing a 'click twice' issue. Remove it for standard asc<->desc.\n";
+print "(function() {\n";
+print "    var fix = function() {\n";
+print "        try {\n";
+print "            var tables = document.querySelectorAll('table.dataTable');\n";
+print "            for (var i = 0; i < tables.length; i++) {\n";
+print "                \$(tables[i]).off('order.dt');\n";
+print "            }\n";
+print "        } catch(e) {}\n";
+print "    };\n";
+print "    setTimeout(fix, 200);\n";
+print "    setTimeout(fix, 1000);\n";
+print "})();\n";
 print "</script>\n";
 
 # Get all rich rules (single query - used for both stats and display)
@@ -251,7 +258,7 @@ sub display_search_interface {
 sub display_filtered_rules {
     my ($rules_ref, $active_tab, $current_filter) = @_;
     my @rules = @$rules_ref;
-    
+
     # Get tab name for display
     my $tab_name = $text{'tab_all'};
     for my $tab (@tab_definitions) {
@@ -274,47 +281,65 @@ sub display_filtered_rules {
     push @action_links, &ui_link($add_rule_url, $text{'stats_add_rule'});
     push @action_links, &ui_link("index.cgi?tab=$active_tab&reload=1", $text{'stats_reload'});
     print &ui_links_row(\@action_links);
-    
+
     # Display rules table
     if (@rules) {
         print &ui_form_start("bulk_actions.cgi", "post");
         print &ui_hidden("tab", $active_tab);
-        
+
         print &ui_columns_start([
             "<input type='checkbox' onclick='toggle_all_checkboxes(this)'>",
             $text{'col_type'},
             $text{'col_zone'},
-            $text{'col_summary'},
+            $text{'col_match'},
+            $text{'col_source'},
+            $text{'col_port'},
+            $text{'col_action'},
             $text{'col_actions'}
         ], 100);
-    
+
         foreach my $rule (@rules) {
             my $parsed = get_parsed_rule($rule);
-            my $rule_summary = &format_rule_summary($rule);
             my $category = $rule->{'category'} || categorize_rich_rule($rule->{'text'});
-
             my $category_display = ucfirst($category);
 
-            my @row_data = (
-                "<input type='checkbox' name='selected' value='" . &html_escape($rule->{'zone'} . ":" . $rule->{'index'}) . "'>",
-                "<b>$category_display</b>",
-                $rule->{'zone'} || 'default',
-                "<tt>" . $rule_summary . "</tt>",
+            # Extract individual column values
+            my $match_val = extract_match($parsed);
+            my $source_val = extract_source($parsed);
+            my $port_val = extract_port($parsed);
+            my $action_val = extract_action($parsed);
+
+            # Sort keys for DataTables numeric sorting
+            my $source_sort = ip_sort_key($source_val);
+            my $port_sort = port_sort_key($port_val);
+
+            # Make source a link to edit page
+            my $edit_url = "edit.cgi?zone=" . &urlize($rule->{'zone'}) . "&idx=" . $rule->{'index'};
+
+            # Raw HTML row with data-order attributes for numeric sorting
+            print "<tr>\n";
+            print "<td><input type='checkbox' name='selected' value='" . &html_escape($rule->{'zone'} . ":" . $rule->{'index'}) . "'></td>\n";
+            print "<td><b>$category_display</b></td>\n";
+            print "<td>" . ($rule->{'zone'} || 'default') . "</td>\n";
+            print "<td><tt>" . &html_escape($match_val) . "</tt></td>\n";
+            print "<td data-order='" . &html_escape($source_sort) . "'><tt>" . &ui_link($edit_url, &html_escape($source_val)) . "</tt></td>\n";
+            print "<td data-order='" . &html_escape($port_sort) . "'><tt>" . &html_escape($port_val) . "</tt></td>\n";
+            print "<td><tt>" . &html_escape($action_val) . "</tt></td>\n";
+            print "<td>" .
                 &ui_link("edit.cgi?idx=" . $rule->{'index'} . "&zone=" . &urlize($rule->{'zone'}), $text{'edit'}) . " | " .
                 &ui_link("clone.cgi?idx=" . $rule->{'index'} . "&zone=" . &urlize($rule->{'zone'}), $text{'clone_rule'}) . " | " .
-                &ui_link("delete.cgi?idx=" . $rule->{'index'} . "&zone=" . &urlize($rule->{'zone'}), $text{'delete'})
-            );
-            
-            print &ui_columns_row(\@row_data);
+                &ui_link("delete.cgi?idx=" . $rule->{'index'} . "&zone=" . &urlize($rule->{'zone'}), $text{'delete'}) .
+                "</td>\n";
+            print "</tr>\n";
         }
-        
+
         print &ui_columns_end();
-        
+
         # Bulk actions
         print "<div style='margin-top: 10px;'>\n";
         print &ui_submit($text{'index_delete_selected'}, "delete_selected");
         print "</div>\n";
-        
+
         print &ui_form_end();
     } else {
         print "<p><em>" . $text{'stats_no_rules'} . "</em></p>\n";
@@ -322,47 +347,75 @@ sub display_filtered_rules {
     }
 }
 
-# Format rule summary for display
-sub format_rule_summary
-{
-    my ($rule) = @_;
-    my $parsed = get_parsed_rule($rule);  # Lazy loading
-    my $rule_text = $rule->{'text'};
-
-    my @parts;
-    my $src_not = $parsed->{'source_not'} ? "NOT " : "";
-    my $dst_not = $parsed->{'destination_not'} ? "NOT " : "";
-
-    # 1. Source
-    if ($parsed->{'source_address'}) {
-        push @parts, "from ${src_not}" . $parsed->{'source_address'};
-    } elsif ($parsed->{'source_mac'}) {
-        push @parts, "from ${src_not}MAC " . $parsed->{'source_mac'};
-    } elsif ($parsed->{'source_ipset'}) {
-        push @parts, "from ${src_not}ipset:" . $parsed->{'source_ipset'};
-    }
-
-    # 2. Destination
-    if ($parsed->{'destination_address'}) {
-        push @parts, "to ${dst_not}" . $parsed->{'destination_address'};
-    } elsif ($parsed->{'destination_ipset'}) {
-        push @parts, "to ${dst_not}ipset:" . $parsed->{'destination_ipset'};
-    }
-
-    # 3. Element (mutually exclusive)
+# Extract match element type for display
+sub extract_match {
+    my ($parsed) = @_;
     if ($parsed->{'service_name'}) {
-        push @parts, "service " . $parsed->{'service_name'};
+        return "service";
+    } elsif ($parsed->{'port'} && $parsed->{'port_protocol'}) {
+        return "port";
     } elsif ($parsed->{'protocol_value'}) {
-        push @parts, "proto " . $parsed->{'protocol_value'};
+        return "protocol";
     } elsif ($parsed->{'icmp_block'}) {
-        push @parts, "icmp-block " . $parsed->{'icmp_block'};
+        return "icmp-block";
     } elsif ($parsed->{'icmp_type'}) {
-        push @parts, "icmp-type " . $parsed->{'icmp_type'};
+        return "icmp-type";
     } elsif ($parsed->{'masquerade'}) {
-        push @parts, "MASQUERADE";
+        return "masquerade";
     } elsif ($parsed->{'forward_port'}) {
-        my $fwd = "forward " . $parsed->{'forward_protocol'} . "/" . $parsed->{'forward_port'};
-        $fwd .= "\x{2192}";  # → arrow
+        return "forward-port";
+    } elsif ($parsed->{'source_port'}) {
+        return "source-port";
+    }
+    return "";
+}
+
+# Extract source address for display
+sub extract_source {
+    my ($parsed) = @_;
+    my $not = $parsed->{'source_not'} ? "NOT " : "";
+    if ($parsed->{'source_address'}) {
+        return "${not}" . $parsed->{'source_address'};
+    } elsif ($parsed->{'source_mac'}) {
+        return "${not}MAC " . $parsed->{'source_mac'};
+    } elsif ($parsed->{'source_ipset'}) {
+        return "${not}ipset:" . $parsed->{'source_ipset'};
+    }
+    # Also show destination if no source
+    my $dst_not = $parsed->{'destination_not'} ? "NOT " : "";
+    if ($parsed->{'destination_address'}) {
+        return "to ${dst_not}" . $parsed->{'destination_address'};
+    } elsif ($parsed->{'destination_ipset'}) {
+        return "to ${dst_not}ipset:" . $parsed->{'destination_ipset'};
+    }
+    return "";
+}
+
+# Extract port/service detail for display
+sub extract_port {
+    my ($parsed) = @_;
+    my @parts;
+    if ($parsed->{'service_name'}) {
+        push @parts, $parsed->{'service_name'};
+    }
+    if ($parsed->{'port'} && $parsed->{'port_protocol'}) {
+        push @parts, $parsed->{'port_protocol'} . "/" . $parsed->{'port'};
+    }
+    if ($parsed->{'source_port'} && $parsed->{'source_port_protocol'}) {
+        push @parts, "sport " . $parsed->{'source_port_protocol'} . "/" . $parsed->{'source_port'};
+    }
+    if ($parsed->{'protocol_value'}) {
+        push @parts, "proto " . $parsed->{'protocol_value'};
+    }
+    if ($parsed->{'icmp_block'}) {
+        push @parts, $parsed->{'icmp_block'};
+    }
+    if ($parsed->{'icmp_type'}) {
+        push @parts, $parsed->{'icmp_type'};
+    }
+    if ($parsed->{'forward_port'}) {
+        my $fwd = $parsed->{'forward_protocol'} . "/" . $parsed->{'forward_port'};
+        $fwd .= "\x{2192}";
         if ($parsed->{'forward_to_addr'}) {
             $fwd .= $parsed->{'forward_to_addr'} . ":" . ($parsed->{'forward_to_port'} || $parsed->{'forward_port'});
         } else {
@@ -370,48 +423,48 @@ sub format_rule_summary
         }
         push @parts, $fwd;
     }
+    return join(", ", @parts);
+}
 
-    # 4. Port (destination port — independent of element)
-    if ($parsed->{'port'} && $parsed->{'port_protocol'}) {
-        push @parts, $parsed->{'port_protocol'} . "/" . $parsed->{'port'};
-    }
-
-    # 5. Source port
-    if ($parsed->{'source_port'} && $parsed->{'source_port_protocol'}) {
-        push @parts, "sport " . $parsed->{'source_port_protocol'} . "/" . $parsed->{'source_port'};
-    }
-
-    # 6. Action
+# Extract action for display
+sub extract_action {
+    my ($parsed) = @_;
+    my @parts;
     if ($parsed->{'action'}) {
         push @parts, uc($parsed->{'action'});
     }
-
-    # 7. Logging
     if ($parsed->{'nflog'}) {
         push @parts, "NFLOG";
     } elsif ($parsed->{'log'}) {
         push @parts, "LOG";
     }
-
-    # 8. Audit
     if ($parsed->{'audit'}) {
         push @parts, "AUDIT";
     }
+    return join(", ", @parts);
+}
 
-    my $summary = join(", ", @parts);
-
-    # If summary is too long or empty, show truncated original rule
-    if (!$summary || length($summary) > 80) {
-        $summary = $rule_text;
-        if (length($summary) > 80) {
-            $summary = substr($summary, 0, 77) . "...";
-        }
+# Generate zero-padded IP sort key for DataTables data-order
+sub ip_sort_key {
+    my ($source_str) = @_;
+    return "zzz" unless $source_str;
+    my $addr = $source_str;
+    $addr =~ s/^(?:NOT |to )+//;
+    $addr =~ s/^(?:MAC |ipset:)//;
+    if ($addr =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)(?:\/(\d+))?/) {
+        return sprintf("%03d.%03d.%03d.%03d_%03d", $1, $2, $3, $4, $5 || 32);
     }
+    return lc($source_str);
+}
 
-    # Make it a link to edit page (following bind8 pattern)
-    return &ui_link("edit.cgi?zone=" . &urlize($rule->{'zone'}) .
-                    "&idx=" . $rule->{'index'},
-                    &html_escape($summary));
+# Generate numeric port sort key for DataTables data-order
+sub port_sort_key {
+    my ($port_str) = @_;
+    return "zzz" unless $port_str;
+    if ($port_str =~ /(\d+)/) {
+        return sprintf("%06d", $1);
+    }
+    return lc($port_str);
 }
 
 # Debug: show page generation time if enabled

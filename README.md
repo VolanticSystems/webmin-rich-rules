@@ -2,7 +2,7 @@
 
 A full-featured Webmin module for managing firewalld rich rules — the complex, expressive firewall rules that `firewall-cmd` supports but most GUIs ignore.
 
-![Version](https://img.shields.io/badge/version-3.1.1-blue)
+![Version](https://img.shields.io/badge/version-3.2.0-blue)
 ![Tests](https://img.shields.io/badge/tests-40%20integration-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Linux-green)
 ![Webmin](https://img.shields.io/badge/Webmin-2.0%2B-orange)
@@ -161,4 +161,4 @@ GPL-3.0 — same as Webmin itself.
 
 ## Author
 
-**Bob7123** — AI-assisted development used for systematic coverage of the combinatorial rule space.
+**[Volantic Systems](https://github.com/VolanticSystems)** — AI-assisted development used for systematic coverage of the combinatorial rule space.

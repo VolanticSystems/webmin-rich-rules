@@ -310,8 +310,12 @@ stats_add_new=Add a new rule
 col_select=Select
 col_type=Type
 col_zone=Zone
-col_summary=Rule Summary
+col_match=Match
+col_source=Source
+col_port=Port
+col_action=Action
 col_actions=Actions
+col_summary=Rule Summary
 
 # Clone errors
 clone_err_params=Missing zone or index parameter
