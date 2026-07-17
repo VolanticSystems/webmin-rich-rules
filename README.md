@@ -8,6 +8,10 @@ A full-featured Webmin module for managing firewalld rich rules: the complex, ex
 ![Webmin](https://img.shields.io/badge/Webmin-2.0%2B-orange)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
+![FirewallD Rich Rules main table](images/rich-rules-table.png)
+
+*The main table on a live server: sortable columns, admin/fail2ban categorization tabs, per-rule actions. Source addresses replaced with RFC 5737 documentation ranges.*
+
 ## What is Webmin?
 
 [Webmin](https://webmin.com) is an open-source web-based system administration tool for Unix-like servers, created by Jamie Cameron in 1997. It provides a browser UI for managing users, services, packages, cron, DNS, email, and more, replacing the need to hand-edit config files over SSH. With over a million installations worldwide, it's one of the most widely deployed server admin panels. Its companion project [Virtualmin](https://virtualmin.com) adds hosting control (domains, databases, email accounts). Webmin modules are self-contained Perl CGI programs that plug into the framework, each managing one system service.
@@ -138,7 +142,7 @@ firewalld-rich/
 ├── unban.cgi             # fail2ban unban handler
 ├── acl_security.pl       # Webmin ACL integration
 ├── lang/en               # English language strings
-├── images/icon.gif       # Module icon (48x48)
+├── images/               # Module icon, README screenshots
 └── test/
     ├── test_rich_rules.sh    # 40-test integration suite (bash)
     ├── failsafe_watchdog.sh  # Dead-man's switch for test safety
