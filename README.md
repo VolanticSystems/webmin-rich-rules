@@ -1,26 +1,26 @@
 # FirewallD Rich Rules for Webmin
 
-A full-featured Webmin module for managing firewalld rich rules — the complex, expressive firewall rules that `firewall-cmd` supports but most GUIs ignore.
+A full-featured Webmin module for managing firewalld rich rules: the complex, expressive firewall rules that `firewall-cmd` supports but most GUIs ignore.
 
 ![Version](https://img.shields.io/badge/version-3.2.0-blue)
 ![Tests](https://img.shields.io/badge/tests-40%20integration-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Linux-green)
 ![Webmin](https://img.shields.io/badge/Webmin-2.0%2B-orange)
-![License](https://img.shields.io/badge/license-GPL--3.0-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ## What is Webmin?
 
-[Webmin](https://webmin.com) is an open-source web-based system administration tool for Unix-like servers, created by Jamie Cameron in 1997. It provides a browser UI for managing users, services, packages, cron, DNS, email, and more — replacing the need to hand-edit config files over SSH. With over a million installations worldwide, it's one of the most widely deployed server admin panels. Its companion project [Virtualmin](https://virtualmin.com) adds hosting control (domains, databases, email accounts). Webmin modules are self-contained Perl CGI programs that plug into the framework, each managing one system service.
+[Webmin](https://webmin.com) is an open-source web-based system administration tool for Unix-like servers, created by Jamie Cameron in 1997. It provides a browser UI for managing users, services, packages, cron, DNS, email, and more, replacing the need to hand-edit config files over SSH. With over a million installations worldwide, it's one of the most widely deployed server admin panels. Its companion project [Virtualmin](https://virtualmin.com) adds hosting control (domains, databases, email accounts). Webmin modules are self-contained Perl CGI programs that plug into the framework, each managing one system service.
 
 ## Why This Exists
 
-FirewallD rich rules are powerful — source/destination filtering, per-rule logging, rate limiting, port forwarding, protocol matching, reject types — but managing them from the command line is tedious and error-prone. One misplaced quote and your rule silently fails. No existing Webmin module handled them.
+FirewallD rich rules are powerful (source/destination filtering, per-rule logging, rate limiting, port forwarding, protocol matching, reject types), but managing them from the command line is tedious and error-prone. One misplaced quote and your rule silently fails. No existing Webmin module handled them.
 
 This module gives you a proper UI inside Webmin: browse, search, filter, create, edit, clone, test, and bulk-manage rich rules across all zones. It also auto-categorizes rules by origin (admin-created vs. fail2ban-generated), so you can see at a glance what's what.
 
 ## Why This is Hard
 
-A rich rule isn't a simple "allow port 80" — it's a combination of:
+A rich rule isn't a simple "allow port 80"; it's a combination of:
 
 - **9 element types**: port, source-port, service, protocol, icmp-block, icmp-type, masquerade, forward-port, mark
 - **Source options**: IPv4 address, IPv6 address, MAC, ipset, inverted (NOT) variants
@@ -38,15 +38,16 @@ The permutation space is hundreds of valid configurations, many with subtle inte
 **Rule Management**
 - Create, edit, clone, and delete rich rules through a clean form interface
 - Full support for all rich rule components: family, source (IP/MAC/interface/ipset), destination, service, port, protocol, action (accept/reject/drop), reject types, logging with prefix/level/rate-limit, audit, masquerade, and port forwarding
-- Live rule preview — see the exact `firewall-cmd` syntax as you build the rule
-- Inline validation — warnings (yellow) as you edit, errors (red) when you test
-- **Test Rule** button — validates against the live firewalld runtime without persisting, so you know it works before you commit
+- Live rule preview: see the exact `firewall-cmd` syntax as you build the rule
+- Inline validation: warnings (yellow) as you edit, errors (red) when you test
+- **Test Rule** button: validates against the live firewalld runtime without persisting, so you know it works before you commit
 
 **Browsing and Search**
 - Tabbed interface: Admin Rules | Fail2Ban Rules | Other Rules | All Rules
 - Auto-categorization detects fail2ban-generated rules vs. manually created ones
 - Filter by zone, IP/network, port, protocol, service, action type, or free text
-- Rule summaries show source, service/port, and action at a glance
+- Rules broken out into Match, Source, Port, and Action columns, each sortable with a single click (DataTables via the Authentic theme, with numeric sort keys so IPs and ports order correctly)
+- Module version displayed in the page header
 
 **Bulk Operations**
 - Select multiple rules with checkboxes
@@ -60,7 +61,7 @@ The permutation space is hundreds of valid configurations, many with subtle inte
 
 ## Testing
 
-The module includes a 40-test integration suite (`test/test_rich_rules.sh`) that exercises the full HTTP interface — not mocked endpoints, but live `save.cgi`, `test_rule.cgi`, `edit.cgi`, and `index.cgi` against a running Webmin instance.
+The module includes a 40-test integration suite (`test/test_rich_rules.sh`) that exercises the full HTTP interface: not mocked endpoints, but live `save.cgi`, `test_rule.cgi`, `edit.cgi`, and `index.cgi` against a running Webmin instance.
 
 **What the tests cover:**
 - All 9 element types (service, port, source-port, protocol, icmp-block, icmp-type, masquerade, forward-port, mark)
@@ -73,18 +74,24 @@ The module includes a 40-test integration suite (`test/test_rich_rules.sh`) that
 
 **Safety design:**
 - A **failsafe watchdog** (dead-man's switch) runs in the background. If tests don't complete within 15 minutes, it restores the firewall from a pre-test baseline and reboots.
-- Tests use an isolated `richtest` zone with no bound interfaces — no live traffic is affected.
-- All test addresses are from RFC 5737 (192.0.2.0/24, 203.0.113.0/24) and RFC 3849 (2001:db8::/32) — never routable.
+- Tests use an isolated `richtest` zone with no bound interfaces; no live traffic is affected.
+- All test addresses are from RFC 5737 (192.0.2.0/24, 203.0.113.0/24) and RFC 3849 (2001:db8::/32), never routable.
 - A safety check after each test category verifies critical ports (SSH, Webmin) remain reachable.
 
 ## Quick Install
 
-Download the `.wbm.gz` package from this repo and install through the Webmin UI:
+Build the module package from a clone, then install it through the Webmin UI:
 
-1. Download [`firewalld-rich.wbm.gz`](firewalld-rich.wbm.gz) from this repository
-2. In Webmin, go to **Webmin → Webmin Configuration → Webmin Modules**
-3. Select **From uploaded file**, choose the `.wbm.gz` file, and click **Install Module**
-4. The module appears under **Networking → FirewallD Rich Rules**
+```bash
+git clone https://github.com/VolanticSystems/webmin-rich-rules.git firewalld-rich
+tar czf firewalld-rich.wbm.gz firewalld-rich/
+```
+
+1. In Webmin, go to **Webmin → Webmin Configuration → Webmin Modules**
+2. Select **From uploaded file**, choose `firewalld-rich.wbm.gz`, and click **Install Module**
+3. The module appears under **Networking → FirewallD Rich Rules**
+
+The directory name matters: Webmin identifies the module as `firewalld-rich`.
 
 ### Requirements
 
@@ -96,7 +103,7 @@ Download the `.wbm.gz` package from this repo and install through the Webmin UI:
 
 ```bash
 cd /usr/libexec/webmin
-tar xzf /path/to/firewalld-rich.wbm.gz
+git clone https://github.com/VolanticSystems/webmin-rich-rules.git firewalld-rich
 # Refresh modules in Webmin UI, or restart Webmin:
 systemctl restart webmin
 ```
@@ -105,9 +112,9 @@ systemctl restart webmin
 
 - Rules are fetched via a single `firewall-cmd --list-all-zones` call (no per-zone queries)
 - Rules get global sequential indices for reliable edit/delete across zones
-- The **Test Rule** feature adds a rule to the runtime (no `--permanent`), checks if firewalld accepts it, then immediately removes it — the rule never persists even if something goes wrong
+- The **Test Rule** feature adds a rule to the runtime (no `--permanent`), checks if firewalld accepts it, then immediately removes it; the rule never persists even if something goes wrong
 - Rule categorization uses pattern matching to distinguish admin rules from fail2ban rules from unknown sources
-- All shell interactions use proper escaping via `_shell_quote_rule()` — no injection vectors
+- All shell interactions use proper escaping via `_shell_quote_rule()`; no injection vectors
 
 ## Module Structure
 
@@ -157,8 +164,8 @@ Should work on any Linux distribution with Webmin 2.0+ and FirewallD 0.3.0+.
 
 ## License
 
-GPL-3.0 — same as Webmin itself.
+MIT, matching the rest of the [Volantic Systems](https://github.com/VolanticSystems) repositories. Webmin itself is BSD-3-Clause; third-party modules carry their own licenses.
 
 ## Author
 
-**[Volantic Systems](https://github.com/VolanticSystems)** — AI-assisted development used for systematic coverage of the combinatorial rule space.
+**[Volantic Systems](https://github.com/VolanticSystems)**. AI-assisted development was used for systematic coverage of the combinatorial rule space.
